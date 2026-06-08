@@ -140,15 +140,29 @@ function App() {
   return (
     <main className="auth-layout">
       <section className="visual-panel" aria-label="Gym Admin">
-        <div className="brand-row">
+        <img
+          className="visual-image"
+          src="/login-gym.jpg"
+          alt=""
+          onError={(event) => {
+            event.currentTarget.hidden = true;
+          }}
+        />
+        <div className="gym-info-card">
+          <span>Centro de entrenamiento</span>
+          <h2>Gestion integral para tu gimnasio</h2>
+          <p>Control de accesos, socios, rutinas y seguimiento operativo desde un solo panel.</p>
+        </div>
+      </section>
+
+      <section className="auth-panel">
+        <div className="brand-row auth-brand">
           <span className="brand-mark">
             <FiActivity />
           </span>
           <span>Gym Admin</span>
         </div>
-      </section>
 
-      <section className="auth-panel">
         <div className="auth-header">
           <p>{mode === "login" ? "Acceso" : "Alta de usuario"}</p>
           <h1>{mode === "login" ? "Iniciar sesion" : "Crear cuenta"}</h1>
