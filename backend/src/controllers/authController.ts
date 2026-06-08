@@ -16,7 +16,15 @@ export const registerController = async (req: Request, res: Response) => {
         const response = await registrarUsuario(result.data);
 
         return res.status(201).json(response);
+
     } catch (error) {
+        
+        if (error instanceof Error && error.message === "El usuario ya existe") {
+            return res.status(409).json({
+                message: error.message,
+            });
+        }
+
         return res.status(400).json({
             message: "No se pudo registrar el usuario",
         });
