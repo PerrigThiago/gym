@@ -20,6 +20,10 @@ export const registrarUsuario = async (data: RegisterData) => {
         .select("id_usuario, usuario, nombre")
         .single();
 
+    if (error?.code === "23505") {
+        throw new Error("El usuario ya existe");
+    }
+
     if (error || !usuarioCreado) {
         throw new Error("No se pudo registrar el usuario");
     }
