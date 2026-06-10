@@ -13,6 +13,10 @@ export const createSocioSchema = z.object({
     id_plan: z.coerce.number().int().positive("El plan es obligatorio"),
 });
 
+export const cambiarPlanSchema = z.object({
+    id_plan: z.coerce.number().int().positive("El plan es obligatorio"),
+});
+
 export const updateSocioSchema = z.object({
     nombre: z.string().min(1, "El nombre es obligatorio").optional(),
     apellido: z.string().min(1, "El apellido es obligatorio").optional(),
@@ -20,7 +24,6 @@ export const updateSocioSchema = z.object({
     fecha_ingreso: z.string().date().optional(),
     estado_pago: estadoPagoSchema.optional(),
     estado_socio: estadoSocioSchema.optional(),
-    id_plan: z.coerce.number().int().positive("El plan es obligatorio").optional(),
 }).refine((data) => Object.keys(data).length > 0, {
     message: "Debe enviar al menos un campo para actualizar",
 });

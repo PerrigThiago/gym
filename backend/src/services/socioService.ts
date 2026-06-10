@@ -18,6 +18,15 @@ const SOCIO_SELECT = [
     "created_at",
 ].join(", ");
 
+const HISTORIAL_PLAN_SELECT = [
+    "id_historial",
+    "id_socio",
+    "id_plan",
+    "fecha_inicio",
+    "fecha_fin",
+    "created_at",
+].join(", ");
+
 export const listarSocios = async () => {
     const { data, error } = await supabase
         .from("socio")
@@ -111,6 +120,81 @@ export const actualizarSocio = async (idSocio: number, data: UpdateSocioData) =>
 
     return {
         socio: socioActualizado,
+    };
+};
+
+export const listarHistorialPlanesSocio = async (idSocio: number) => {
+    const { data, error } = await supabase
+        .from("socio_plan_historial")
+        .select(HISTORIAL_PLAN_SELECT)
+        .eq("id_socio", idSocio)
+        .order("fecha_inicio", { ascending: false });
+
+    if (error) {
+        throw new Error("No se pudo obtener el historial de planes");
+    }
+
+    return {
+        historial: data,
+    };
+};
+
+export const cambiarPlanSocio = async (idSocio: number, idPlan: number) => {
+    const { data: socioActual, error: socioError } = await supabase
+        .from("socio")
+        .select(SOCIO_SELECT)
+        .eq("id_socio", idSocio)
+        .single();
+
+    if (socioError || !socioActual) {
+        throw new Error("Socio no encontrado");
+    }
+
+    if (socioActual.id_plan === idPlan) {
+        throw new Error("El socio ya tiene ese plan");
+    }
+
+    const fechaCambio = new Date().toISOString().slice(0, 10);
+
+    const { error: cerrarHistorialError } = await supabase
+        .from("socio_plan_historial")
+        .update({ fecha_fin: fechaCambio })
+        .eq("id_socio", idSocio)
+        .is("fecha_fin", null);
+
+    if (cerrarHistorialError) {
+        throw new Error("No se pudo cerrar el historial anterior");
+    }
+
+    const { data: socioActualizado, error: actualizarSocioError } = await supabase
+        .from("socio")
+        .update({ id_plan: idPlan })
+        .eq("id_socio", idSocio)
+        .select(SOCIO_SELECT)
+        .single();
+
+    if (actualizarSocioError || !socioActualizado) {
+        throw new Error("No se pudo actualizar el plan del socio");
+    }
+
+    const { data: historialCreado, error: crearHistorialError } = await supabase
+        .from("socio_plan_historial")
+        .insert({
+            id_socio: idSocio,
+            id_plan: idPlan,
+            fecha_inicio: fechaCambio,
+            fecha_fin: null,
+        })
+        .select(HISTORIAL_PLAN_SELECT)
+        .single();
+
+    if (crearHistorialError || !historialCreado) {
+        throw new Error("No se pudo crear el nuevo historial del plan");
+    }
+
+    return {
+        socio: socioActualizado,
+        historial: historialCreado,
     };
 };
 

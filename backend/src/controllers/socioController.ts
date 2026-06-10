@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
-import { createSocioSchema, updateSocioSchema } from "../schemas/socioSchema";
+import { cambiarPlanSchema, createSocioSchema, updateSocioSchema } from "../schemas/socioSchema";
 import {
     actualizarSocio,
+    cambiarPlanSocio,
     crearSocio,
     desactivarSocio,
+    listarHistorialPlanesSocio,
     listarSocios,
     obtenerSocioPorId,
 } from "../services/socioService";
@@ -130,6 +132,61 @@ export const actualizarSocioController = async (req: Request, res: Response) => 
 
         return res.status(404).json({
             message: "Socio no encontrado",
+        });
+    }
+};
+
+export const listarHistorialPlanesSocioController = async (req: Request, res: Response) => {
+    const idSocio = parseIdParam(req.params.id_socio ?? req.params.id);
+
+    if (!idSocio) {
+        return res.status(400).json({
+            message: "ID de socio invalido",
+        });
+    }
+
+    try {
+        const response = await listarHistorialPlanesSocio(idSocio);
+
+        return res.status(200).json(response);
+    } catch (error) {
+        return res.status(400).json({
+            message: "No se pudo obtener el historial de planes",
+        });
+    }
+};
+
+export const cambiarPlanSocioController = async (req: Request, res: Response) => {
+    const idSocio = parseIdParam(req.params.id_socio ?? req.params.id);
+
+    if (!idSocio) {
+        return res.status(400).json({
+            message: "ID de socio invalido",
+        });
+    }
+
+    const result = cambiarPlanSchema.safeParse(req.body);
+
+    if (!result.success) {
+        return res.status(400).json({
+            message: "Datos invalidos",
+            errors: result.error.issues,
+        });
+    }
+
+    try {
+        const response = await cambiarPlanSocio(idSocio, result.data.id_plan);
+
+        return res.status(200).json(response);
+    } catch (error) {
+        if (error instanceof Error && error.message === "El socio ya tiene ese plan") {
+            return res.status(409).json({
+                message: error.message,
+            });
+        }
+
+        return res.status(400).json({
+            message: "No se pudo cambiar el plan del socio",
         });
     }
 };
