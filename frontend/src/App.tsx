@@ -7,6 +7,7 @@ import {
   FiDollarSign,
   FiLock,
   FiLogOut,
+  FiMail,
   FiRefreshCw,
   FiRepeat,
   FiTrendingUp,
@@ -22,6 +23,7 @@ type DashboardTab = "socios" | "pagos" | "planes";
 type Usuario = {
   id_usuario: number;
   usuario: string;
+  email?: string;
   nombre?: string;
 };
 
@@ -127,6 +129,7 @@ function App() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [usuario, setUsuario] = useState("");
   const [nombre, setNombre] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [token, setToken] = useState(() => localStorage.getItem("token") ?? "");
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
@@ -225,7 +228,74 @@ function App() {
   const resetAuthForm = () => {
     setUsuario("");
     setNombre("");
+    setEmail("");
     setPassword("");
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const verificationToken = params.get("token");
+
+    if (!window.location.pathname.includes("verify-email") || !verificationToken) {
+      return;
+    }
+
+    const verifyEmail = async () => {
+      setIsLoading(true);
+      setMessage("");
+
+      try {
+        const response = await fetch(
+          `${AUTH_API_URL}/verify-email?token=${encodeURIComponent(verificationToken)}`,
+        );
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message ?? "No se pudo verificar el email");
+        }
+
+        setMode("login");
+        setMessage(data.message ?? "Email verificado. Ya podes iniciar sesion.");
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "No se pudo verificar el email");
+      } finally {
+        window.history.replaceState({}, "", "/");
+        setIsLoading(false);
+      }
+    };
+
+    verifyEmail();
+  }, []);
+
+  const handleResendVerification = async () => {
+    if (!email) {
+      setMessage("Ingresa tu email para reenviar la verificacion.");
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch(`${AUTH_API_URL}/resend-verification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message ?? "No se pudo reenviar la verificacion");
+      }
+
+      setMessage(data.message ?? "Revisa tu email para verificar la cuenta.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo reenviar la verificacion");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -236,8 +306,8 @@ function App() {
     const endpoint = mode === "login" ? "login" : "register";
     const payload =
       mode === "login"
-        ? { usuario, password }
-        : { usuario, nombre, password };
+        ? { email, password }
+        : { usuario, nombre, email, password };
 
     try {
       const response = await fetch(`${AUTH_API_URL}/${endpoint}`, {
@@ -256,8 +326,10 @@ function App() {
 
       if (mode === "register") {
         setMode("login");
-        resetAuthForm();
-        setMessage("Usuario registrado. Inicia sesion.");
+        setUsuario("");
+        setNombre("");
+        setPassword("");
+        setMessage(data.message ?? "Usuario registrado. Revisa tu email para verificar la cuenta.");
         return;
       }
 
@@ -867,33 +939,50 @@ function App() {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label>
-            Usuario
+            Email
             <span>
-              <FiUser />
+              <FiMail />
               <input
-                autoComplete="username"
-                value={usuario}
-                onChange={(event) => setUsuario(event.target.value)}
-                placeholder="admin"
+                autoComplete="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="admin@gym.com"
                 required
               />
             </span>
           </label>
 
           {mode === "register" && (
-            <label>
-              Nombre
-              <span>
-                <FiUser />
-                <input
-                  autoComplete="name"
-                  value={nombre}
-                  onChange={(event) => setNombre(event.target.value)}
-                  placeholder="Administrador"
-                  required
-                />
-              </span>
-            </label>
+            <>
+              <label>
+                Usuario
+                <span>
+                  <FiUser />
+                  <input
+                    autoComplete="username"
+                    value={usuario}
+                    onChange={(event) => setUsuario(event.target.value)}
+                    placeholder="admin"
+                    required
+                  />
+                </span>
+              </label>
+
+              <label>
+                Nombre
+                <span>
+                  <FiUser />
+                  <input
+                    autoComplete="name"
+                    value={nombre}
+                    onChange={(event) => setNombre(event.target.value)}
+                    placeholder="Administrador"
+                    required
+                  />
+                </span>
+              </label>
+            </>
           )}
 
           <label>
@@ -913,6 +1002,17 @@ function App() {
           </label>
 
           {message && <p className="form-message">{message}</p>}
+
+          {mode === "login" && message.toLowerCase().includes("verificar") && (
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={handleResendVerification}
+              disabled={isLoading}
+            >
+              Reenviar verificacion
+            </button>
+          )}
 
           <button className="primary-button" type="submit" disabled={isLoading}>
             {isLoading ? "Procesando..." : mode === "login" ? "Entrar" : "Registrar"}
