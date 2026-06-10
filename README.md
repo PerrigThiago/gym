@@ -11,16 +11,19 @@ La app ya tiene implementado el flujo base de autenticacion:
 
 1. Registro de usuario.
 2. Hash de password antes de guardar en base de datos.
-3. Login con usuario y password.
-4. Generacion de token JWT.
-5. Validacion de sesion con una ruta protegida.
-6. Frontend conectado al backend para register, login, `/me` y logout.
+3. Envio de email de verificacion con Resend.
+4. Login con email y password solo si el email esta verificado.
+5. Generacion de token JWT.
+6. Validacion de sesion con una ruta protegida.
+7. Frontend conectado al backend para register, login, verificacion, `/me` y logout.
 
 Endpoints disponibles:
 
 ```txt
 POST /api/auth/register
 POST /api/auth/login
+GET  /api/auth/verify-email?token=TOKEN
+POST /api/auth/resend-verification
 GET  /api/auth/me
 ```
 
@@ -34,6 +37,7 @@ El frontend envia:
 {
   "usuario": "admin",
   "nombre": "Administrador",
+  "email": "admin@gym.com",
   "password": "123456"
 }
 ```
@@ -43,16 +47,21 @@ El backend valida los datos con Zod, genera un hash con bcrypt y guarda en Supab
 ```txt
 usuario
 nombre
+email
+email_verified
+email_verification_token_hash
+email_verification_expires_at
 password_hash
 ```
 
 La password original no se guarda en la base de datos.
+El token real de verificacion tampoco se guarda: solo se guarda su hash SHA-256.
 
-Si el usuario ya existe, Supabase devuelve el codigo `23505` y el backend responde:
+Si el usuario o email ya existe, Supabase devuelve el codigo `23505` y el backend responde:
 
 ```json
 {
-  "message": "El usuario ya existe"
+  "message": "El usuario o email ya existe"
 }
 ```
 
@@ -64,7 +73,7 @@ El frontend envia:
 
 ```json
 {
-  "usuario": "admin",
+  "email": "admin@gym.com",
   "password": "123456"
 }
 ```
@@ -79,8 +88,43 @@ Respuesta esperada:
   "usuario": {
     "id_usuario": 1,
     "usuario": "admin",
+    "email": "admin@gym.com",
     "nombre": "Administrador"
   }
+}
+```
+
+Si el email todavia no fue verificado, el backend responde `403`:
+
+```json
+{
+  "message": "Debes verificar tu email antes de iniciar sesion"
+}
+```
+
+### Verificacion de email con Resend
+
+Despues del registro, el backend genera un token aleatorio, guarda su hash en Supabase y envia un link por Resend:
+
+```txt
+http://localhost:5173/verify-email?token=TOKEN
+```
+
+El frontend lee ese token y llama al backend:
+
+```txt
+GET /api/auth/verify-email?token=TOKEN
+```
+
+Tambien se puede reenviar el email:
+
+```txt
+POST /api/auth/resend-verification
+```
+
+```json
+{
+  "email": "admin@gym.com"
 }
 ```
 
@@ -353,6 +397,9 @@ Crear `backend/.env` con:
 SUPABASE_URL=tu_url_de_supabase
 SUPABASE_PUBLISHABLE_KEY=tu_publishable_key
 JWT_SECRET=tu_clave_secreta_larga
+RESEND_API_KEY=tu_api_key_de_resend
+RESEND_FROM_EMAIL="Gym Admin <no-reply@tu-dominio.com>"
+FRONTEND_URL=http://localhost:5173
 PORT=3000
 ```
 
@@ -367,12 +414,37 @@ CREATE TABLE usuario (
   id_usuario BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   usuario TEXT NOT NULL UNIQUE,
   nombre TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  email_verified BOOLEAN NOT NULL DEFAULT false,
+  email_verification_token_hash TEXT,
+  email_verification_expires_at TIMESTAMP,
   password_hash TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT now()
 );
 ```
 
 El campo `password_hash` debe ser `TEXT` para no truncar hashes de bcrypt.
+
+Si ya tenes creada la tabla `usuario`, agrega los campos nuevos con:
+
+```sql
+ALTER TABLE usuario
+ADD COLUMN IF NOT EXISTS email TEXT,
+ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS email_verification_token_hash TEXT,
+ADD COLUMN IF NOT EXISTS email_verification_expires_at TIMESTAMP;
+
+CREATE UNIQUE INDEX IF NOT EXISTS usuario_email_unique
+ON usuario (email)
+WHERE email IS NOT NULL;
+```
+
+Despues de completar emails para usuarios existentes, podes hacer obligatorio el campo:
+
+```sql
+ALTER TABLE usuario
+ALTER COLUMN email SET NOT NULL;
+```
 
 ## Como correr el proyecto
 
@@ -416,6 +488,7 @@ POST http://localhost:3000/api/auth/register
 {
   "usuario": "admin",
   "nombre": "Administrador",
+  "email": "admin@gym.com",
   "password": "123456"
 }
 ```
@@ -428,8 +501,26 @@ POST http://localhost:3000/api/auth/login
 
 ```json
 {
-  "usuario": "admin",
+  "email": "admin@gym.com",
   "password": "123456"
+}
+```
+
+### Verificar email
+
+```txt
+GET http://localhost:3000/api/auth/verify-email?token=TOKEN
+```
+
+### Reenviar verificacion
+
+```txt
+POST http://localhost:3000/api/auth/resend-verification
+```
+
+```json
+{
+  "email": "admin@gym.com"
 }
 ```
 
@@ -448,15 +539,3 @@ Authorization: Bearer TOKEN
 - Todavia no hay roles ni permisos.
 - Todavia no hay entidades reales del gimnasio, como clientes, planes, rutinas o pagos.
 - No hay tests automatizados.
-
-## Proximos pasos recomendados
-
-1. Mover la URL del backend a un `.env` del frontend con `VITE_API_URL`.
-2. Separar `App.tsx` en componentes:
-   - `AuthForm.tsx`
-   - `SessionPanel.tsx`
-3. Crear `frontend/src/services/authService.ts` para centralizar requests.
-4. Tipar correctamente `req.user` en Express.
-5. Crear la primera entidad real, por ejemplo `clientes` o `socios`.
-6. Proteger las rutas privadas con `authMiddleware`.
-7. Agregar roles si la app necesita permisos distintos.

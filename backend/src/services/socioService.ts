@@ -5,6 +5,11 @@ import { createSocioSchema, updateSocioSchema } from "../schemas/socioSchema";
 type CreateSocioData = z.infer<typeof createSocioSchema>;
 type UpdateSocioData = z.infer<typeof updateSocioSchema>;
 
+type SocioPlanRow = {
+    id_socio: number;
+    id_plan: number;
+};
+
 const SOCIO_SELECT = [
     "id_socio",
     "nombre",
@@ -84,10 +89,12 @@ export const crearSocio = async (data: CreateSocioData, idUsuario: number) => {
         throw new Error("No se pudo crear el socio");
     }
 
+    const socioCreadoRow = socioCreado as unknown as SocioPlanRow;
+
     const { error: historialError } = await supabase
         .from("socio_plan_historial")
         .insert({
-            id_socio: socioCreado.id_socio,
+            id_socio: socioCreadoRow.id_socio,
             id_plan: data.id_plan,
             fecha_inicio: fechaIngreso,
             fecha_fin: null,
@@ -150,7 +157,9 @@ export const cambiarPlanSocio = async (idSocio: number, idPlan: number) => {
         throw new Error("Socio no encontrado");
     }
 
-    if (socioActual.id_plan === idPlan) {
+    const socioActualRow = socioActual as unknown as SocioPlanRow;
+
+    if (socioActualRow.id_plan === idPlan) {
         throw new Error("El socio ya tiene ese plan");
     }
 
