@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import { loginSchema, registerSchema } from "../schemas/authSchemas";
-import { loginUsuario, registrarUsuario } from "../services/authService";
+import {
+    loginUsuario,
+    registrarUsuario,
+} from "../services/authService";
 
 export const registerController = async (req: Request, res: Response) => {
     const result = registerSchema.safeParse(req.body);
@@ -18,6 +21,7 @@ export const registerController = async (req: Request, res: Response) => {
         return res.status(201).json(response);
 
     } catch (error) {
+        console.error("registerController error:", error);
         
         if (error instanceof Error && error.message === "El usuario ya existe") {
             return res.status(409).json({
@@ -26,7 +30,7 @@ export const registerController = async (req: Request, res: Response) => {
         }
 
         return res.status(400).json({
-            message: "No se pudo registrar el usuario",
+            message: error instanceof Error ? error.message : "No se pudo registrar el usuario",
         });
     }
 };
@@ -46,6 +50,8 @@ export const loginController = async (req: Request, res: Response) => {
 
         return res.status(200).json(response);
     } catch (error) {
+        console.error("loginController error:", error);
+
         return res.status(401).json({
             message: "Usuario o password incorrectos",
         });

@@ -10,26 +10,47 @@ type RegisterData = z.infer<typeof registerSchema>;
 export const registrarUsuario = async (data: RegisterData) => {
     const passwordHash = await bcrypt.hash(data.password, 10);
 
-    const { data: usuarioCreado, error } = await supabase
-        .from("usuario")
-        .insert({
-            usuario: data.usuario,
-            nombre: data.nombre,
-            password_hash: passwordHash,
-        })
-        .select("id_usuario, usuario, nombre")
-        .single();
+    let usuarioCreado;
+    let error;
+
+    try {
+        const result = await supabase
+            .from("usuario")
+            .insert({
+                usuario: data.usuario,
+                nombre: data.nombre,
+                password_hash: passwordHash,
+            })
+            .select("id_usuario, usuario, nombre")
+            .single();
+
+        usuarioCreado = result.data;
+        error = result.error;
+    } catch (fetchError) {
+        console.error("No se pudo conectar con Supabase al registrar usuario:", fetchError);
+        throw new Error(
+            "No se pudo conectar con Supabase. Verifica tu conexion a internet y reinicia el backend desde una terminal normal."
+        );
+    }
 
     if (error?.code === "23505") {
         throw new Error("El usuario ya existe");
     }
 
-    if (error || !usuarioCreado) {
+    if (error) {
+        console.error("Error de Supabase al registrar usuario:", error);
+        throw new Error(
+            `No se pudo registrar el usuario: ${error.message}`
+        );
+    }
+
+    if (!usuarioCreado) {
         throw new Error("No se pudo registrar el usuario");
     }
 
     return {
         usuario: usuarioCreado,
+        message: "Usuario registrado. Ya podes iniciar sesion.",
     };
 };
 
@@ -41,6 +62,10 @@ export const loginUsuario = async (data: LoginData) => {
         .single();
 
     if (error || !usuarioEncontrado) {
+        if (error) {
+            console.error("Error de Supabase al buscar usuario:", error);
+        }
+
         throw new Error("Usuario o password incorrectos");
     }
 
