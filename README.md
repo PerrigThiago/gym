@@ -1,135 +1,158 @@
 # Gym Admin
 
-Sistema web para administrar socios, planes y pagos de un gimnasio.
+Gym Admin es un sistema web pensado para ayudar a administrar un gimnasio de forma simple y ordenada.
 
-El proyecto esta separado en una API REST con Express + TypeScript y un frontend con React + Vite. Usa Supabase como base de datos y JWT para proteger las rutas privadas.
+La idea principal es centralizar en un solo lugar la informacion diaria del negocio: socios, planes, pagos, estados de deuda y acciones administrativas. El objetivo es que la persona que gestiona el gimnasio pueda ver rapido que esta pasando y tomar decisiones sin depender de planillas sueltas, anotaciones manuales o informacion repartida en distintos lugares.
 
-## Funcionalidades
+## Que se hizo
 
-- Registro e inicio de sesion de administradores.
-- Sesion persistente con token JWT.
-- Dashboard operativo por secciones:
-  - Socios: alta de socios, estados de pago y reglas mensuales.
-  - Pagos: registro de pagos, monto, metodo y observaciones.
-  - Planes: listado de planes y cambio de plan por socio.
-- Historial de cambios de plan.
-- Eventos administrativos y alertas para seguimiento.
-- Interfaz responsive para desktop y mobile.
+Se construyo un panel administrativo para gestionar la operacion basica de un gimnasio.
 
-## Tecnologias
+El sistema permite registrar administradores, iniciar sesion y trabajar dentro de un dashboard privado. Desde ese dashboard se pueden cargar socios, registrar pagos, consultar planes, cambiar planes de socios y aplicar reglas mensuales para mantener actualizados los estados de pago.
 
-- Backend: Node.js, Express, TypeScript, Zod, JWT, bcrypt.
-- Frontend: React, Vite, TypeScript, React Icons.
-- Base de datos: Supabase/PostgreSQL.
+Tambien se agrego una capa administrativa para guardar eventos importantes y alertas. Esto ayuda a entender que paso con cada socio y a no perder de vista situaciones que requieren seguimiento.
 
-## Estructura
+## Para que sirve
 
-```txt
-gym/
-  backend/              API REST
-  frontend/             App React
-  database/             SQL adicional para Supabase
-  docs/                 Documentacion tecnica y deploy
-```
+Este sistema sirve para reemplazar controles manuales o planillas simples por una herramienta mas clara y centralizada.
 
-## Requisitos
+Ayuda a responder preguntas como:
 
-- Node.js 20 o superior.
-- npm.
-- Proyecto de Supabase creado.
+- Quienes son los socios activos.
+- Que socios tienen pagos pendientes.
+- Que socios estan atrasados.
+- Que pagos se registraron.
+- Cuanto ingreso se cargo en el sistema.
+- Que plan tiene cada socio.
+- Cuando se cambio el plan de un socio.
+- Que acciones administrativas ocurrieron.
 
-## Configuracion local
+## Funcionalidades principales
 
-1. Instalar dependencias:
+### Gestion de usuarios
 
-```powershell
-cd backend
-npm install
+El sistema cuenta con registro e inicio de sesion para administradores.
 
-cd ../frontend
-npm install
-```
+Esto permite que el panel no quede abierto al publico y que las acciones importantes queden asociadas a un usuario administrador.
 
-2. Crear variables de entorno:
+### Dashboard operativo
 
-```powershell
-copy backend\.env.example backend\.env
-copy frontend\.env.example frontend\.env
-```
+El dashboard esta dividido por areas para que la informacion sea mas facil de leer:
 
-3. Completar `backend/.env`:
+- Socios
+- Pagos
+- Planes
 
-```env
-SUPABASE_URL=https://tu-proyecto.supabase.co
-SUPABASE_PUBLISHABLE_KEY=tu_publishable_key
-SUPABASE_SERVICE_ROLE_KEY=
-JWT_SECRET=una_clave_larga_y_secreta
-FRONTEND_URL=http://localhost:5173
-PORT=3000
-```
+Cada seccion muestra informacion distinta segun la tarea que se quiera realizar.
 
-4. Completar `frontend/.env`:
+### Gestion de socios
 
-```env
-VITE_API_BASE_URL=http://localhost:3000/api
-```
+Desde la seccion de socios se puede:
 
-5. Crear las tablas necesarias en Supabase. Ver:
+- Crear un nuevo socio.
+- Registrar nombre, apellido, DNI, fecha de ingreso y plan.
+- Ver el listado de socios cargados.
+- Consultar el estado del socio.
+- Consultar si el pago esta al dia, pendiente o atrasado.
+- Desactivar socios cuando ya no corresponda mantenerlos activos.
 
-- [README tecnico](docs/README_TECNICO.md)
-- `database/administracion_base.sql`
+Esto permite tener una base ordenada de personas que entrenan en el gimnasio.
 
-## Uso local
+### Gestion de planes
 
-Backend:
+El sistema permite trabajar con planes de entrenamiento o membresia.
 
-```powershell
-cd backend
-npm run dev
-```
+Cada plan tiene:
 
-Frontend:
+- Nombre.
+- Cantidad de dias por semana.
+- Precio.
 
-```powershell
-cd frontend
-npm run dev
-```
+Tambien se puede cambiar el plan asignado a un socio. Cuando se hace un cambio, el sistema guarda el historial para saber que plan tenia antes y desde cuando usa el nuevo.
 
-URLs locales:
+### Gestion de pagos
 
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:3000`
-- API base: `http://localhost:3000/api`
+Desde la seccion de pagos se puede registrar un pago realizado por un socio.
 
-## Scripts utiles
+Cada pago puede incluir:
 
-Backend:
+- Socio.
+- Monto.
+- Metodo de pago.
+- Comprobante.
+- Observaciones.
 
-```powershell
-npm run dev
-npm run build
-npm start
-```
+Cuando se registra un pago, el sistema actualiza el estado del socio para marcarlo como pagado.
 
-Frontend:
+### Reglas mensuales
 
-```powershell
-npm run dev
-npm run build
-npm run preview
-```
+Se agregaron acciones para actualizar estados de pago en bloque.
 
-En Windows/PowerShell, si `npm run build` queda bloqueado por `npm.ps1`, usar:
+Esto sirve para tareas administrativas frecuentes, por ejemplo:
 
-```powershell
-npm.cmd run build
-```
+- Marcar socios activos como pendientes al inicio de un nuevo periodo.
+- Marcar como atrasados a quienes siguen pendientes despues de cierto tiempo.
 
-## Documentacion
+Estas acciones ayudan a mantener el dashboard actualizado sin tener que modificar socio por socio.
 
-- [README tecnico](docs/README_TECNICO.md): arquitectura, carpetas, endpoints, modelos y decisiones.
-- [Deploy](docs/DEPLOY.md): pasos para subir a GitHub y publicar backend/frontend.
+### Alertas y eventos
 
-## Estado del proyecto
+El sistema registra eventos administrativos importantes, como:
 
-El sistema esta preparado para subir a GitHub y deployar separando backend y frontend. Antes de usarlo en produccion, revisar politicas de seguridad de Supabase, variables de entorno, dominio del frontend y estrategia de backups.
+- Creacion de un socio.
+- Registro de un pago.
+- Cambio de plan.
+- Desactivacion de un socio.
+- Aplicacion de reglas mensuales.
+
+Tambien puede generar alertas para situaciones que requieren atencion, como pagos atrasados o socios desactivados.
+
+Esto permite tener trazabilidad: no solo ver el estado actual, sino tambien entender que acciones llevaron a ese estado.
+
+## Por que se hizo asi
+
+El sistema fue pensado para una gestion diaria, rapida y practica.
+
+Por eso se priorizo:
+
+- Separar la informacion por areas claras.
+- Mostrar indicadores utiles en el dashboard.
+- Evitar depender de planillas externas.
+- Registrar eventos importantes para tener historial.
+- Mantener el flujo simple: cargar socio, asignar plan, registrar pago y revisar estados.
+
+La intencion no fue crear una herramienta enorme, sino una base solida para administrar un gimnasio real y poder seguir ampliandola en el futuro.
+
+## Estado actual del sistema
+
+El sistema ya cuenta con las funciones principales para operar:
+
+- Acceso privado para administradores.
+- Gestion de socios.
+- Gestion de planes.
+- Registro de pagos.
+- Estados de pago.
+- Reglas mensuales.
+- Historial de cambios.
+- Eventos y alertas administrativas.
+- Dashboard separado por Socios, Pagos y Planes.
+
+## Posibles mejoras futuras
+
+Algunas mejoras que se podrian sumar mas adelante:
+
+- Busqueda avanzada de socios.
+- Reportes mensuales.
+- Exportacion de informacion.
+- Control de asistencias.
+- Vencimientos automaticos.
+- Roles de usuario.
+- Notificaciones.
+- Comprobantes de pago mas completos.
+
+## Documentacion adicional
+
+La documentacion tecnica y las instrucciones de publicacion estan separadas para no mezclar la explicacion del sistema con detalles de programacion.
+
+- `docs/README_TECNICO.md`
+- `docs/DEPLOY.md`
