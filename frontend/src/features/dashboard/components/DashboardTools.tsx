@@ -1,5 +1,6 @@
+import { useMemo, useState } from "react";
 import type { Dispatch, FormEventHandler, SetStateAction } from "react";
-import { FiCreditCard, FiRepeat, FiUser } from "react-icons/fi";
+import { FiCreditCard, FiRepeat, FiSearch, FiUser } from "react-icons/fi";
 import type {
   CambioPlanForm,
   DashboardTab,
@@ -42,6 +43,51 @@ export function DashboardTools({
   setPagoForm,
   setSocioForm,
 }: DashboardToolsProps) {
+  const [pagoSocioSearch, setPagoSocioSearch] = useState("");
+  const selectedPagoSocio = useMemo(
+    () => sociosActivos.find((socio) => String(socio.id_socio) === pagoForm.id_socio) ?? null,
+    [pagoForm.id_socio, sociosActivos],
+  );
+  const selectedPagoPlan = selectedPagoSocio
+    ? planes.find((plan) => plan.id_plan === selectedPagoSocio.id_plan) ?? null
+    : null;
+  const sociosPagoFiltrados = useMemo(() => {
+    const search = pagoSocioSearch.trim().toLowerCase();
+
+    if (!search) {
+      return sociosActivos.slice(0, 8);
+    }
+
+    return sociosActivos
+      .filter((socio) => {
+        const plan = planes.find((item) => item.id_plan === socio.id_plan);
+
+        return (
+          socio.nombre.toLowerCase().includes(search) ||
+          socio.apellido.toLowerCase().includes(search) ||
+          socio.dni.toLowerCase().includes(search) ||
+          (plan?.nombre_plan ?? "").toLowerCase().includes(search)
+        );
+      })
+      .slice(0, 10);
+  }, [pagoSocioSearch, planes, sociosActivos]);
+
+  const handleSelectPagoSocio = (idSocio: number) => {
+    const socio = sociosActivos.find((item) => item.id_socio === idSocio);
+    const plan = socio ? planes.find((item) => item.id_plan === socio.id_plan) : null;
+
+    setPagoForm({
+      ...pagoForm,
+      id_socio: String(idSocio),
+      monto_pagado: plan ? String(plan.precio) : pagoForm.monto_pagado,
+    });
+    setPagoSocioSearch("");
+  };
+
+  if (activeTab === "alertas" || activeTab === "resumen") {
+    return null;
+  }
+
   if (activeTab === "pagos") {
     return (
       <section className="tools-grid single-tool">
@@ -50,24 +96,66 @@ export function DashboardTools({
             <FiCreditCard />
             <h2>Registrar pago</h2>
           </div>
-          <div className="form-grid two-columns">
-            <label>
-              Socio
-              <select
-                value={pagoForm.id_socio}
-                onChange={(event) =>
-                  setPagoForm({ ...pagoForm, id_socio: event.target.value })
-                }
-                required
-              >
-                <option value="">Seleccionar socio</option>
-                {sociosActivos.map((socio) => (
-                  <option key={socio.id_socio} value={socio.id_socio}>
-                    {socio.apellido}, {socio.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="payment-flow">
+            <div className="member-search-panel">
+              <label className="search-control payment-search">
+                <FiSearch />
+                <input
+                  value={pagoSocioSearch}
+                  onChange={(event) => setPagoSocioSearch(event.target.value)}
+                  placeholder="Buscar socio por nombre, DNI o plan"
+                />
+              </label>
+
+              <div className="member-result-list">
+                {sociosPagoFiltrados.map((socio) => {
+                  const plan = planes.find((item) => item.id_plan === socio.id_plan);
+
+                  return (
+                    <button
+                      className={pagoForm.id_socio === String(socio.id_socio) ? "active" : ""}
+                      key={socio.id_socio}
+                      type="button"
+                      onClick={() => handleSelectPagoSocio(socio.id_socio)}
+                    >
+                      <span>
+                        <strong>
+                          {socio.apellido}, {socio.nombre}
+                        </strong>
+                        <small>
+                          DNI {socio.dni} | {plan?.nombre_plan ?? `Plan ${socio.id_plan}`}
+                        </small>
+                      </span>
+                      <b>{plan ? formatCurrency(plan.precio) : "-"}</b>
+                    </button>
+                  );
+                })}
+                {sociosActivos.length === 0 && <p>No hay socios activos para cobrar.</p>}
+                {sociosActivos.length > 0 && sociosPagoFiltrados.length === 0 && (
+                  <p>No encontramos socios con esa busqueda.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="selected-payment-panel">
+              <div className="selected-member-card">
+                <span>Socio seleccionado</span>
+                {selectedPagoSocio ? (
+                  <>
+                    <strong>
+                      {selectedPagoSocio.apellido}, {selectedPagoSocio.nombre}
+                    </strong>
+                    <small>
+                      {selectedPagoPlan?.nombre_plan ?? `Plan ${selectedPagoSocio.id_plan}`} |{" "}
+                      {selectedPagoPlan ? formatCurrency(selectedPagoPlan.precio) : "Sin precio"}
+                    </small>
+                  </>
+                ) : (
+                  <strong>Selecciona un socio</strong>
+                )}
+              </div>
+
+              <div className="form-grid two-columns">
             <label>
               Monto
               <input
@@ -114,6 +202,8 @@ export function DashboardTools({
                 }
               />
             </label>
+              </div>
+            </div>
           </div>
           <button className="primary-button compact" type="submit">
             Registrar pago

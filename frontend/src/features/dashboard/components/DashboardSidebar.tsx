@@ -1,4 +1,11 @@
-import { FiCalendar, FiCreditCard, FiLogOut, FiUsers } from "react-icons/fi";
+import {
+  FiAlertTriangle,
+  FiCalendar,
+  FiCreditCard,
+  FiHome,
+  FiLogOut,
+  FiUsers,
+} from "react-icons/fi";
 import { BrandRow } from "../../../components/BrandRow";
 import type { DashboardTab, Usuario } from "../../../types/gym";
 
@@ -27,6 +34,14 @@ export function DashboardSidebar({
 
       <nav className="sidebar-nav" aria-label="Secciones del dashboard">
         <button
+          className={activeTab === "resumen" ? "active" : ""}
+          type="button"
+          onClick={() => onTabChange("resumen")}
+        >
+          <FiHome />
+          Resumen
+        </button>
+        <button
           className={activeTab === "socios" ? "active" : ""}
           type="button"
           onClick={() => onTabChange("socios")}
@@ -49,6 +64,14 @@ export function DashboardSidebar({
         >
           <FiCalendar />
           Planes
+        </button>
+        <button
+          className={activeTab === "alertas" ? "active" : ""}
+          type="button"
+          onClick={() => onTabChange("alertas")}
+        >
+          <FiAlertTriangle />
+          Alertas
         </button>
       </nav>
 

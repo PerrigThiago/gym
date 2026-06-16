@@ -4,9 +4,21 @@ import {
     marcarSociosPendientesComoAtrasados,
 } from "../services/reglaMensualService";
 
-export const aplicarPendientesController = async (_req: Request, res: Response) => {
+const getIdUsuarioFromRequest = (req: Request) => {
+    const user = (req as any).user;
+
+    if (!user || typeof user.id_usuario !== "number") {
+        return null;
+    }
+
+    return user.id_usuario;
+};
+
+export const aplicarPendientesController = async (req: Request, res: Response) => {
     try {
-        const response = await marcarSociosActivosComoPendientes();
+        const response = await marcarSociosActivosComoPendientes(
+            getIdUsuarioFromRequest(req) ?? undefined,
+        );
 
         return res.status(200).json(response);
     } catch (error) {
@@ -16,9 +28,11 @@ export const aplicarPendientesController = async (_req: Request, res: Response) 
     }
 };
 
-export const aplicarAtrasadosController = async (_req: Request, res: Response) => {
+export const aplicarAtrasadosController = async (req: Request, res: Response) => {
     try {
-        const response = await marcarSociosPendientesComoAtrasados();
+        const response = await marcarSociosPendientesComoAtrasados(
+            getIdUsuarioFromRequest(req) ?? undefined,
+        );
 
         return res.status(200).json(response);
     } catch (error) {

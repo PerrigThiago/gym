@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import {
   FiCalendar,
+  FiAlertTriangle,
   FiCreditCard,
   FiDollarSign,
   FiRefreshCw,
@@ -18,10 +19,12 @@ import { fetchApi } from "../../services/api";
 import type {
   DashboardMessage,
   DashboardTab,
+  Alerta,
   MetodoPago,
   Pago,
   Plan,
   Socio,
+  SocioEvento,
   Usuario,
 } from "../../types/gym";
 import { formatCurrency } from "../../utils/formatters";
@@ -38,6 +41,10 @@ type DashboardViewProps = {
 };
 
 const tabContent: Record<DashboardTab, { eyebrow: string; title: string }> = {
+  resumen: {
+    eyebrow: "Vista ejecutiva",
+    title: "Resumen",
+  },
   socios: {
     eyebrow: "Gestion de socios",
     title: "Socios",
@@ -50,13 +57,20 @@ const tabContent: Record<DashboardTab, { eyebrow: string; title: string }> = {
     eyebrow: "Configuracion comercial",
     title: "Planes",
   },
+  alertas: {
+    eyebrow: "Acciones pendientes",
+    title: "Alertas",
+  },
 };
 
 export function DashboardView({ currentUser, token, onLogout }: DashboardViewProps) {
   const [planes, setPlanes] = useState<Plan[]>([]);
   const [socios, setSocios] = useState<Socio[]>([]);
   const [pagos, setPagos] = useState<Pago[]>([]);
-  const [activeTab, setActiveTab] = useState<DashboardTab>("socios");
+  const [alertas, setAlertas] = useState<Alerta[]>([]);
+  const [selectedSocioId, setSelectedSocioId] = useState<number | null>(null);
+  const [socioEventos, setSocioEventos] = useState<SocioEvento[]>([]);
+  const [activeTab, setActiveTab] = useState<DashboardTab>("resumen");
   const [dashboardMessage, setDashboardMessage] = useState<DashboardMessage>(null);
   const [isDashboardLoading, setIsDashboardLoading] = useState(false);
   const [socioForm, setSocioForm] = useState(emptySocioForm);
@@ -80,6 +94,17 @@ export function DashboardView({ currentUser, token, onLogout }: DashboardViewPro
       setPlanes(planesData.planes);
       setSocios(sociosData.socios);
       setPagos(pagosData.pagos);
+
+      try {
+        const alertasData = await fetchApi<{ alertas: Alerta[] }>(
+          "/administracion/alertas",
+          token,
+        );
+        setAlertas(alertasData.alertas);
+      } catch (error) {
+        console.error("No se pudieron cargar las alertas administrativas", error);
+        setAlertas([]);
+      }
     } catch (error) {
       setDashboardMessage({
         type: "error",
@@ -93,6 +118,28 @@ export function DashboardView({ currentUser, token, onLogout }: DashboardViewPro
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  useEffect(() => {
+    if (!selectedSocioId || !token) {
+      setSocioEventos([]);
+      return;
+    }
+
+    const loadSocioEventos = async () => {
+      try {
+        const data = await fetchApi<{ eventos: SocioEvento[] }>(
+          `/administracion/socios/${selectedSocioId}/eventos`,
+          token,
+        );
+        setSocioEventos(data.eventos);
+      } catch (error) {
+        console.error("No se pudieron cargar los eventos del socio", error);
+        setSocioEventos([]);
+      }
+    };
+
+    loadSocioEventos();
+  }, [selectedSocioId, token]);
 
   const planById = useMemo(() => {
     return planes.reduce<Record<number, Plan>>((accumulator, plan) => {
@@ -116,6 +163,39 @@ export function DashboardView({ currentUser, token, onLogout }: DashboardViewPro
   const ingresosRegistrados = useMemo(
     () => pagos.reduce((total, pago) => total + Number(pago.monto_pagado), 0),
     [pagos],
+  );
+  const pagosHoy = useMemo(() => {
+    const today = new Date();
+
+    return pagos.filter((pago) => {
+      const fechaPago = new Date(pago.fecha_pago);
+
+      return (
+        fechaPago.getDate() === today.getDate() &&
+        fechaPago.getMonth() === today.getMonth() &&
+        fechaPago.getFullYear() === today.getFullYear()
+      );
+    });
+  }, [pagos]);
+  const pagosMes = useMemo(() => {
+    const today = new Date();
+
+    return pagos.filter((pago) => {
+      const fechaPago = new Date(pago.fecha_pago);
+
+      return (
+        fechaPago.getMonth() === today.getMonth() &&
+        fechaPago.getFullYear() === today.getFullYear()
+      );
+    });
+  }, [pagos]);
+  const ingresosHoy = useMemo(
+    () => pagosHoy.reduce((total, pago) => total + Number(pago.monto_pagado), 0),
+    [pagosHoy],
+  );
+  const ingresosMes = useMemo(
+    () => pagosMes.reduce((total, pago) => total + Number(pago.monto_pagado), 0),
+    [pagosMes],
   );
   const ingresosPorMetodo = useMemo(
     () =>
@@ -143,8 +223,41 @@ export function DashboardView({ currentUser, token, onLogout }: DashboardViewPro
     () => socios.filter((socio) => Boolean(planById[socio.id_plan])).length,
     [planById, socios],
   );
+  const alertasAltaPrioridad = useMemo(
+    () => alertas.filter((alerta) => alerta.prioridad === "Alta").length,
+    [alertas],
+  );
+  const deudaEstimada = useMemo(
+    () =>
+      socios
+        .filter(
+          (socio) =>
+            socio.estado_socio === "Activo" &&
+            (socio.estado_pago === "Pendiente" || socio.estado_pago === "Atrasado"),
+        )
+        .reduce((total, socio) => total + Number(planById[socio.id_plan]?.precio ?? 0), 0),
+    [planById, socios],
+  );
 
   const metrics = useMemo<DashboardMetric[]>(() => {
+    if (activeTab === "resumen") {
+      return [
+        { icon: FiDollarSign, label: "Ingresos mes", value: formatCurrency(ingresosMes) },
+        { icon: FiCreditCard, label: "Pagos hoy", value: pagosHoy.length },
+        { icon: FiTrendingUp, label: "Deuda estimada", value: formatCurrency(deudaEstimada) },
+        { icon: FiAlertTriangle, label: "Alertas", value: alertas.length },
+      ];
+    }
+
+    if (activeTab === "alertas") {
+      return [
+        { icon: FiAlertTriangle, label: "Pendientes", value: alertas.length },
+        { icon: FiTrendingUp, label: "Prioridad alta", value: alertasAltaPrioridad },
+        { icon: FiUsers, label: "Socios atrasados", value: sociosAtrasados.length },
+        { icon: FiCreditCard, label: "Pagos cargados", value: pagos.length },
+      ];
+    }
+
     if (activeTab === "pagos") {
       return [
         { icon: FiCreditCard, label: "Pagos cargados", value: pagos.length },
@@ -175,10 +288,15 @@ export function DashboardView({ currentUser, token, onLogout }: DashboardViewPro
     ];
   }, [
     activeTab,
+    alertas.length,
+    alertasAltaPrioridad,
+    deudaEstimada,
+    ingresosMes,
     ingresosPorMetodo,
     ingresosRegistrados,
     mayorPrecioPlan,
     pagos.length,
+    pagosHoy.length,
     planes.length,
     precioPromedioPlanes,
     socios.length,
@@ -187,6 +305,46 @@ export function DashboardView({ currentUser, token, onLogout }: DashboardViewPro
     sociosConPlan,
     sociosPendientes.length,
   ]);
+
+  const handleResolverAlerta = async (idAlerta: number) => {
+    setDashboardMessage(null);
+
+    try {
+      await fetchApi(`/administracion/alertas/${idAlerta}/resolver`, token, {
+        method: "PATCH",
+      });
+
+      setDashboardMessage({ type: "success", text: "Alerta resuelta" });
+      await loadDashboard();
+    } catch (error) {
+      setDashboardMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "No se pudo resolver la alerta",
+      });
+    }
+  };
+
+  const handleSelectSocio = (idSocio: number) => {
+    setSelectedSocioId((currentId) => (currentId === idSocio ? null : idSocio));
+  };
+
+  const handleDesactivarSocio = async (idSocio: number) => {
+    setDashboardMessage(null);
+
+    try {
+      await fetchApi(`/socios/${idSocio}`, token, {
+        method: "DELETE",
+      });
+
+      setDashboardMessage({ type: "success", text: "Socio desactivado correctamente" });
+      await loadDashboard();
+    } catch (error) {
+      setDashboardMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "No se pudo desactivar el socio",
+      });
+    }
+  };
 
   const handleCreateSocio = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -337,10 +495,21 @@ export function DashboardView({ currentUser, token, onLogout }: DashboardViewPro
 
         <DashboardDataPanel
           activeTab={activeTab}
+          alertas={alertas}
+          deudaEstimada={deudaEstimada}
+          ingresosHoy={ingresosHoy}
+          ingresosMes={ingresosMes}
           pagos={pagos}
+          pagosHoy={pagosHoy}
+          pagosMes={pagosMes}
           planById={planById}
           planes={planes}
+          selectedSocioId={selectedSocioId}
+          socioEventos={socioEventos}
           socios={socios}
+          onDesactivarSocio={handleDesactivarSocio}
+          onResolverAlerta={handleResolverAlerta}
+          onSelectSocio={handleSelectSocio}
           onTabChange={setActiveTab}
         />
       </section>

@@ -175,7 +175,8 @@ export const cambiarPlanSocioController = async (req: Request, res: Response) =>
     }
 
     try {
-        const response = await cambiarPlanSocio(idSocio, result.data.id_plan);
+        const idUsuario = getIdUsuarioFromRequest(req) ?? undefined;
+        const response = await cambiarPlanSocio(idSocio, result.data.id_plan, idUsuario);
 
         return res.status(200).json(response);
     } catch (error) {
@@ -201,7 +202,8 @@ export const desactivarSocioController = async (req: Request, res: Response) => 
     }
 
     try {
-        const response = await desactivarSocio(idSocio);
+        const idUsuario = getIdUsuarioFromRequest(req) ?? undefined;
+        const response = await desactivarSocio(idSocio, idUsuario);
 
         return res.status(200).json(response);
     } catch (error) {

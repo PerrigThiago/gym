@@ -1,8 +1,13 @@
 import { z } from "zod";
 import { supabase } from "../config/supabase";
 import { createPagoSchema } from "../schemas/pagoSchema";
+import { registrarEventoSeguro } from "./administracionService";
 
 type CreatePagoData = z.infer<typeof createPagoSchema>;
+
+type PagoRow = {
+    id_pago: number;
+};
 
 const PAGO_SELECT = [
     "id_pago",
@@ -90,6 +95,21 @@ export const registrarPago = async (data: CreatePagoData, idUsuario: number) => 
     if (socioError) {
         throw new Error("No se pudo actualizar el estado de pago del socio");
     }
+
+    const pagoCreadoRow = pagoCreado as unknown as PagoRow;
+
+    await registrarEventoSeguro({
+        id_socio: data.id_socio,
+        id_usuario: idUsuario,
+        tipo_evento: "PAGO_REGISTRADO",
+        descripcion: `Pago registrado por ${data.monto_pagado}`,
+        metadata: {
+            id_pago: pagoCreadoRow.id_pago,
+            monto_pagado: data.monto_pagado,
+            metodo_pago: data.metodo_pago,
+            fecha_pago: data.fecha_pago ?? null,
+        },
+    });
 
     return {
         pago: pagoCreado,

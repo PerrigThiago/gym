@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { supabase } from "../config/supabase";
 import { createSocioSchema, updateSocioSchema } from "../schemas/socioSchema";
+import { crearAlertaSegura, registrarEventoSeguro } from "./administracionService";
 
 type CreateSocioData = z.infer<typeof createSocioSchema>;
 type UpdateSocioData = z.infer<typeof updateSocioSchema>;
@@ -104,6 +105,18 @@ export const crearSocio = async (data: CreateSocioData, idUsuario: number) => {
         throw new Error("No se pudo crear el historial del plan");
     }
 
+    await registrarEventoSeguro({
+        id_socio: socioCreadoRow.id_socio,
+        id_usuario: idUsuario,
+        tipo_evento: "SOCIO_CREADO",
+        descripcion: `Socio creado: ${data.apellido}, ${data.nombre}`,
+        metadata: {
+            dni: data.dni,
+            id_plan: data.id_plan,
+            fecha_ingreso: fechaIngreso,
+        },
+    });
+
     return {
         socio: socioCreado,
     };
@@ -146,7 +159,7 @@ export const listarHistorialPlanesSocio = async (idSocio: number) => {
     };
 };
 
-export const cambiarPlanSocio = async (idSocio: number, idPlan: number) => {
+export const cambiarPlanSocio = async (idSocio: number, idPlan: number, idUsuario?: number) => {
     const { data: socioActual, error: socioError } = await supabase
         .from("socio")
         .select(SOCIO_SELECT)
@@ -201,13 +214,25 @@ export const cambiarPlanSocio = async (idSocio: number, idPlan: number) => {
         throw new Error("No se pudo crear el nuevo historial del plan");
     }
 
+    await registrarEventoSeguro({
+        id_socio: idSocio,
+        id_usuario: idUsuario ?? null,
+        tipo_evento: "PLAN_CAMBIADO",
+        descripcion: `Plan cambiado de ${socioActualRow.id_plan} a ${idPlan}`,
+        metadata: {
+            id_plan_anterior: socioActualRow.id_plan,
+            id_plan_nuevo: idPlan,
+            fecha_cambio: fechaCambio,
+        },
+    });
+
     return {
         socio: socioActualizado,
         historial: historialCreado,
     };
 };
 
-export const desactivarSocio = async (idSocio: number) => {
+export const desactivarSocio = async (idSocio: number, idUsuario?: number) => {
     const { data, error } = await supabase
         .from("socio")
         .update({ estado_socio: "Inactivo" })
@@ -218,6 +243,24 @@ export const desactivarSocio = async (idSocio: number) => {
     if (error || !data) {
         throw new Error("Socio no encontrado");
     }
+
+    await registrarEventoSeguro({
+        id_socio: idSocio,
+        id_usuario: idUsuario ?? null,
+        tipo_evento: "SOCIO_DESACTIVADO",
+        descripcion: "Socio marcado como Inactivo",
+        metadata: {
+            estado_socio: "Inactivo",
+        },
+    });
+
+    await crearAlertaSegura({
+        id_socio: idSocio,
+        tipo_alerta: "SOCIO_INACTIVO",
+        titulo: "Socio desactivado",
+        descripcion: "Revisar si corresponde seguimiento comercial o administrativo.",
+        prioridad: "Baja",
+    });
 
     return {
         socio: data,

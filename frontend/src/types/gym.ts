@@ -1,6 +1,6 @@
 export type AuthMode = "login" | "register";
 export type MetodoPago = "Efectivo" | "MercadoPago";
-export type DashboardTab = "socios" | "pagos" | "planes";
+export type DashboardTab = "resumen" | "socios" | "pagos" | "planes" | "alertas";
 
 export type Usuario = {
   id_usuario: number;
@@ -37,6 +37,29 @@ export type Pago = {
   metodo_pago: MetodoPago;
   comprobante?: string | null;
   observaciones?: string | null;
+  created_at: string;
+};
+
+export type Alerta = {
+  id_alerta: number;
+  id_socio?: number | null;
+  tipo_alerta: string;
+  titulo: string;
+  descripcion: string;
+  prioridad: "Baja" | "Media" | "Alta";
+  estado: "Pendiente" | "Resuelta" | "Ignorada";
+  id_usuario_resolucion?: number | null;
+  resolved_at?: string | null;
+  created_at: string;
+};
+
+export type SocioEvento = {
+  id_evento: number;
+  id_socio?: number | null;
+  id_usuario?: number | null;
+  tipo_evento: string;
+  descripcion: string;
+  metadata?: Record<string, unknown>;
   created_at: string;
 };
 
