@@ -9,16 +9,38 @@ import reglaMensualRoute from "./routes/reglaMensualRoute"
 import socioRoute from "./routes/socioRoute"
 
 const app = express()
-const allowedOrigins = process.env.FRONTEND_URL
-  ?.split(",")
-  .map((origin) => origin.trim())
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URLS,
+]
+  .filter(Boolean)
+  .flatMap((value) => value!.split(","))
+  .map((origin) => origin.trim().replace(/\/$/, ""))
   .filter(Boolean)
 
-app.use(
-  cors({
-    origin: allowedOrigins?.length ? allowedOrigins : true,
-  })
-)
+const corsOptions: cors.CorsOptions = {
+  origin(origin, callback) {
+    if (!origin) {
+      return callback(null, true)
+    }
+
+    const normalizedOrigin = origin.replace(/\/$/, "")
+
+    if (!allowedOrigins.length || allowedOrigins.includes(normalizedOrigin)) {
+      return callback(null, true)
+    }
+
+    return callback(new Error(`Origen no permitido por CORS: ${origin}`))
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}
+
+/*
+  FRONTEND_URL debe configurarse en produccion, por ejemplo:
+  FRONTEND_URL=https://gym-zeta-ruddy.vercel.app
+*/
+app.use(cors(corsOptions))
 app.use(express.json())
 
 app.get("/", (req, res) => {
