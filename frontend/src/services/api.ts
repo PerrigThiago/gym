@@ -1,5 +1,15 @@
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000/api";
+const normalizeApiUrl = (url: string) => {
+  const cleanUrl = url.replace(/\/+$/, "");
+
+  return cleanUrl.endsWith("/api") ? cleanUrl : `${cleanUrl}/api`;
+};
+
+const apiUrlFromEnv =
+  import.meta.env.VITE_API_URL ?? import.meta.env.VITE_API_BASE_URL;
+
+export const API_BASE_URL = normalizeApiUrl(
+  apiUrlFromEnv ?? (import.meta.env.DEV ? "http://localhost:3000/api" : "/api"),
+);
 export const AUTH_API_URL = `${API_BASE_URL}/auth`;
 
 export const fetchApi = async <T,>(
